@@ -79,10 +79,10 @@ try{
         }
 
         
-
         await database.collection("opções").insertOne({
             title:title,
-            pollId:pollId
+            pollId:pollId,
+            votes:0
         })
         res.status(201).send("Opção cadastrada com sucesso")
     }catch(err){
@@ -104,3 +104,68 @@ try{
         console.log(err)
     }
  }
+
+export async function Voto(req,res){
+    const {id} = req.params
+    const database = await connectMongoDB();
+    const opçãoexistente = await database.collection("opções").findOne({_id: new ObjectId(id)})
+    const {votes} = opçãoexistente;
+    console.log(opçãoexistente);
+    if(!opçãoexistente){
+        return res.status(404).send();
+    }
+
+    const{pollId} = opçãoexistente
+    const enquetevalida = await database.collection("enquetes").findOne({_id: new ObjectId(pollId)})
+    console.log(enquetevalida);
+    const {expireAt} = enquetevalida;
+
+    let validartempo = expireAt
+        let agora = dayjs()
+
+        if(agora.isAfter(dayjs(validartempo))){
+            return res.status(403).send("Enquete expirada");
+        }
+    
+    try{
+        await database.collection("votos").insertOne({
+            createAt:dayjs().format("YYYY-MM-DD HH:mm"),
+            choiceId: new ObjectId(id),
+            pollId:pollId,
+            
+        })
+        let novosVotos = votes+1
+        await database.collection("opções").updateOne(
+            {_id:new ObjectId(id)},
+            {$set:{"votes":novosVotos}}
+        );
+        res.status(201).send("Voto Enviado!")
+    }catch(err){
+        console.log(err)
+    }
+    return res.send()
+}
+
+export async function Resultado(req,res){
+    const {id} = req.params;
+    const database = await connectMongoDB();
+    const enquete = await database.collection("enquetes").findOne({_id:new ObjectId(id)});
+
+    if(!enquete){
+        return res.status(404);
+    }
+    const opções = await database.collection("opções").find({pollId:id}).toArray();
+    console.log(opções)
+    let maisVotado 
+    let maisvotos = 0
+    
+    for(let i = 0;i<opções.length;i++){
+        if(opções[i].votes > maisvotos){
+            maisVotado = opções[i];
+        }
+    }
+
+    return res.json(maisVotado).send();
+
+}   
+
