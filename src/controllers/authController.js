@@ -157,13 +157,15 @@ export async function Voto(req, res) {
 
 export async function Resultado(req, res) {
   const { id } = req.params;
-  const database = await connectMongoDB();
-  const enquete = await database
+
+  try{
+    const database = await connectMongoDB();
+    const enquete = await database
     .collection("enquetes")
     .findOne({ _id: new ObjectId(id) });
 
   if (!enquete) {
-    return res.status(404);
+    return res.status(404).send();
   }
   const opções = await database
     .collection("opções")
@@ -178,6 +180,8 @@ export async function Resultado(req, res) {
       maisVotado = opções[i];
     }
   }
-
   return res.json(maisVotado).send();
+}catch(err){
+  return res.status(404).send()
+}
 }
